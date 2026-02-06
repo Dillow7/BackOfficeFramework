@@ -1,0 +1,15 @@
+mg/framework/annotations/Controlleur.class
+mg/framework/registry/ControllerRegistry.class
+mg/framework/annotations/RequestParam.class
+mg/framework/registry/HandlerMethod.class
+mg/framework/annotations/PostMapping.class
+mg/framework/scan/ClasspathScanner.class
+mg/framework/model/ModelView.class
+mg/framework/upload/UploadedFile.class
+mg/framework/annotations/GetMapping.class
+mg/framework/annotations/Json.class
+mg/framework/FrontServlet.class
+mg/framework/init/FrameworkInitializer.class
+mg/framework/model/JsonResponse.class
+mg/framework/annotations/HandleURL.class
+mg/framework/FrontServlet$PathToken.class

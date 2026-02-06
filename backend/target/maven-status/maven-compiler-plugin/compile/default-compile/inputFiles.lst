@@ -1,0 +1,14 @@
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/scan/ClasspathScanner.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/annotations/RequestParam.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/annotations/GetMapping.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/annotations/HandleURL.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/upload/UploadedFile.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/FrontServlet.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/registry/HandlerMethod.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/model/JsonResponse.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/registry/ControllerRegistry.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/model/ModelView.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/init/FrameworkInitializer.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/annotations/PostMapping.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/annotations/Json.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/annotations/Controlleur.java
