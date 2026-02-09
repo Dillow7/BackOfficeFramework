@@ -1,0 +1,11 @@
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/entity/Hotel.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/dao/ReservationDao.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/controller/HotelController.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/entity/Reservation.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/controller/HomeController.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/dao/ClientDao.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/controller/ReservationController.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/entity/Client.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/dao/HotelDao.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/controller/ClientController.java
+/Users/mirijarandria/Documents/GitHub/BackOfficeFramework/backend/src/main/java/mg/framework/dao/DbConnection.java
