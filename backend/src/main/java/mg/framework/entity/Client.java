@@ -1,60 +1,36 @@
 package mg.framework.entity;
 
+import jakarta.persistence.*;
+import jakarta.validation.constraints.Email;
+import jakarta.validation.constraints.NotBlank;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
+
+@Entity
+@Table(name = "client")
+@Data
+@NoArgsConstructor
+@AllArgsConstructor
 public class Client {
+    
+    @Id
+    @Column(name = "id", length = 4)
     private String id;
+    
+    @Column(name = "nom", length = 100, nullable = false)
+    @NotBlank(message = "Le nom ne peut pas être vide")
     private String nom;
+    
+    @Column(name = "prenom", length = 100, nullable = false)
+    @NotBlank(message = "Le prénom ne peut pas être vide")
     private String prenom;
+    
+    @Column(name = "telephone", length = 20, nullable = false, unique = true)
+    @NotBlank(message = "Le téléphone ne peut pas être vide")
     private String telephone;
+    
+    @Column(name = "email", length = 150, unique = true)
+    @Email(message = "L'email doit être valide")
     private String email;
-
-    public Client() {
-    }
-
-    public Client(String id, String nom, String prenom, String telephone, String email) {
-        this.id = id;
-        this.nom = nom;
-        this.prenom = prenom;
-        this.telephone = telephone;
-        this.email = email;
-    }
-
-    public String getId() {
-        return id;
-    }
-
-    public void setId(String id) {
-        this.id = id;
-    }
-
-    public String getNom() {
-        return nom;
-    }
-
-    public void setNom(String nom) {
-        this.nom = nom;
-    }
-
-    public String getPrenom() {
-        return prenom;
-    }
-
-    public void setPrenom(String prenom) {
-        this.prenom = prenom;
-    }
-
-    public String getTelephone() {
-        return telephone;
-    }
-
-    public void setTelephone(String telephone) {
-        this.telephone = telephone;
-    }
-
-    public String getEmail() {
-        return email;
-    }
-
-    public void setEmail(String email) {
-        this.email = email;
-    }
 }
