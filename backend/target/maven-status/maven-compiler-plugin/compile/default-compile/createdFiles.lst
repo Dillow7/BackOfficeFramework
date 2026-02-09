@@ -1,0 +1,11 @@
+mg/framework/entity/Reservation.class
+mg/framework/dao/ReservationDao.class
+mg/framework/controller/HomeController.class
+mg/framework/controller/ClientController.class
+mg/framework/controller/HotelController.class
+mg/framework/dao/HotelDao.class
+mg/framework/dao/ClientDao.class
+mg/framework/dao/DbConnection.class
+mg/framework/entity/Client.class
+mg/framework/entity/Hotel.class
+mg/framework/controller/ReservationController.class
