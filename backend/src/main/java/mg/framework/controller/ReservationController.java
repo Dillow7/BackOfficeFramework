@@ -1,85 +1,96 @@
 package mg.framework.controller;
 
-import mg.framework.annotations.Controlleur;
-import mg.framework.annotations.GetMapping;
-import mg.framework.annotations.Json;
-import mg.framework.annotations.PostMapping;
-import mg.framework.annotations.RequestParam;
-import mg.framework.dao.ClientDao;
-import mg.framework.dao.HotelDao;
-import mg.framework.dao.ReservationDao;
 import mg.framework.entity.Reservation;
-import mg.framework.model.JsonResponse;
-import mg.framework.model.ModelView;
-
+import mg.framework.dao.ReservationDao;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+import jakarta.validation.Valid;
 import java.sql.SQLException;
-import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Optional;
 
-@Controlleur("")
+@RestController
+@RequestMapping("/api/reservations")
+@CrossOrigin(origins = "*", allowedHeaders = "*")
+@Slf4j
 public class ReservationController {
-    private final ClientDao clientDao = new ClientDao();
-    private final HotelDao hotelDao = new HotelDao();
-    private final ReservationDao dao = new ReservationDao();
-
-    @GetMapping("/reservations/new")
-    public ModelView newReservationForm() throws SQLException {
-        ModelView mv = new ModelView("WEB-INF/views/reservation-form.jsp");
-        mv.addAttribute("clients", clientDao.findAll());
-        mv.addAttribute("hotels", hotelDao.findAll());
-        return mv;
+    
+    private final ReservationDao reservationDao = new ReservationDao();
+    
+    @GetMapping
+    public ResponseEntity<List<Reservation>> getAllReservations() {
+        log.info("GET /api/reservations - Récupération de toutes les réservations");
+        try {
+            List<Reservation> reservations = reservationDao.findAll();
+            return ResponseEntity.ok(reservations);
+        } catch (SQLException e) {
+            log.error("Erreur DB: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
-
-    @GetMapping("/reservations/all")
-    @Json
-    public JsonResponse list() throws SQLException {
-        return new JsonResponse("success", 200, dao.findAll(), "Opération réussie");
+    
+    @GetMapping("/{id}")
+    public ResponseEntity<?> getReservationById(@PathVariable Integer id) {
+        log.info("GET /api/reservations/{} - Récupération de la réservation", id);
+        try {
+            Optional<Reservation> reservation = reservationDao.findById(id);
+            if (reservation.isPresent()) {
+                return ResponseEntity.ok(reservation.get());
+            }
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("{\"error\": \"Réservation non trouvée\"}");
+        } catch (SQLException e) {
+            log.error("Erreur DB: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
-
-    @GetMapping("/reservations/find")
-    @Json
-    public JsonResponse find(@RequestParam("id") int id) throws SQLException {
-        return dao.findById(id)
-                .map(reservation -> new JsonResponse("success", 200, reservation, "Opération réussie"))
-                .orElseGet(() -> new JsonResponse("error", 404, null, "Reservation introuvable"));
+    
+    @PostMapping
+    public ResponseEntity<?> createReservation(@Valid @RequestBody Reservation reservation) {
+        log.info("POST /api/reservations - Création d'une nouvelle réservation pour le client: {}", reservation.getIdClient());
+        try {
+            Reservation createdReservation = reservationDao.save(reservation);
+            return ResponseEntity.status(HttpStatus.CREATED).body(createdReservation);
+        } catch (SQLException e) {
+            log.error("Erreur DB: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                    .body("{\"error\": \"" + e.getMessage() + "\"}");
+        }
     }
-
-    @PostMapping("/reservations/create")
-    @Json
-    public JsonResponse create(@RequestParam("idClient") String idClient,
-                                            @RequestParam("nbPassager") int nbPassager,
-                                            @RequestParam("dateHeureArrive") String dateHeureArrive,
-                                            @RequestParam("idHotel") int idHotel) throws SQLException {
-        Reservation reservation = new Reservation(
-                null,
-                idClient,
-                nbPassager,
-                LocalDateTime.parse(dateHeureArrive),
-                idHotel
-        );
-        return new JsonResponse("success", 200, dao.save(reservation), "Opération réussie");
+    
+    @PutMapping("/{id}")
+    public ResponseEntity<?> updateReservation(@PathVariable Integer id, @Valid @RequestBody Reservation reservationDetails) {
+        log.info("PUT /api/reservations/{} - Modification de la réservation", id);
+        try {
+            reservationDetails.setId(id);
+            boolean updated = reservationDao.update(reservationDetails);
+            if (updated) {
+                return ResponseEntity.ok(reservationDetails);
+            }
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("{\"error\": \"Réservation non trouvée\"}");
+        } catch (SQLException e) {
+            log.error("Erreur DB: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
-
-    @PostMapping("/reservations/update")
-    @Json
-    public JsonResponse update(@RequestParam("id") int id,
-                                        @RequestParam("idClient") String idClient,
-                                        @RequestParam("nbPassager") int nbPassager,
-                                        @RequestParam("dateHeureArrive") String dateHeureArrive,
-                                        @RequestParam("idHotel") int idHotel) throws SQLException {
-        Reservation reservation = new Reservation(
-                id,
-                idClient,
-                nbPassager,
-                LocalDateTime.parse(dateHeureArrive),
-                idHotel
-        );
-        return new JsonResponse("success", 200, dao.update(reservation), "Opération réussie");
-    }
-
-    @PostMapping("/reservations/delete")
-    @Json
-    public JsonResponse delete(@RequestParam("id") int id) throws SQLException {
-        return new JsonResponse("success", 200, dao.delete(id), "Opération réussie");
+    
+    @DeleteMapping("/{id}")
+    public ResponseEntity<?> deleteReservation(@PathVariable Integer id) {
+        log.info("DELETE /api/reservations/{} - Suppression de la réservation", id);
+        try {
+            Optional<Reservation> reservation = reservationDao.findById(id);
+            if (reservation.isPresent()) {
+                reservationDao.delete(id);
+                return ResponseEntity.status(HttpStatus.NO_CONTENT).build();
+            }
+            return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                    .body("{\"error\": \"Réservation non trouvée\"}");
+        } catch (SQLException e) {
+            log.error("Erreur DB: {}", e.getMessage());
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+        }
     }
 }

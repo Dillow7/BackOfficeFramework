@@ -1,1 +1,4 @@
 creer les pages html qui genere le formulaire d insertion reservation (thymeleaf)
+
+
+package mg.framework.entity;
