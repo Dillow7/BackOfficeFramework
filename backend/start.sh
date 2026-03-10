@@ -8,7 +8,7 @@ export DB_USER="root"
 export DB_PASSWORD="root"
 
 # 2. Chemin Tomcat (modifiable via variable d'environnement TOMCAT_HOME)
-TOMCAT_HOME="${TOMCAT_HOME:-/Users/oceanechristodoulou/Desktop/tout/S3/apache-tomcat-10.1.28}"
+TOMCAT_HOME="${TOMCAT_HOME:-/Users/mirijarandria/Documents/apache-tomcat-10.1.39}"
 TOMCAT_WEBAPPS="$TOMCAT_HOME/webapps"
 
 if [ ! -f "$TOMCAT_HOME/bin/startup.sh" ]; then
@@ -28,4 +28,3 @@ cp target/backofficehotel.war "$TOMCAT_WEBAPPS/"
 
 echo "✅ WAR déployé. Tomcat va le déployer automatiquement."
 echo "📍 URL: http://localhost:8080/backofficehotel"
-/home/carole/Documents/S6/MrNainaS6/Hotel/Hotel/BackOfficeHotel/src/main/java/com/hotel/backoffice/AppInitializer.java

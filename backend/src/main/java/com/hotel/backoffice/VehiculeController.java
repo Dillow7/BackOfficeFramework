@@ -11,6 +11,8 @@ import java.util.List;
 
 import com.hotel.backoffice.model.Vehicule;
 
+
+// Contrôleur pour gérer les opérations CRUD sur les véhicules
 @Controlleur
 public class VehiculeController {
     private final VehiculeDao vehiculeDao = new VehiculeDao();

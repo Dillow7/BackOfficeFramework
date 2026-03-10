@@ -7,6 +7,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+
+// DAO pour gérer les opérations liées aux réservations et à l'assignation des véhicules
 public class ReservationDao {
     private static final String INSERT_SQL =
         "INSERT INTO reservation (id_client, nb_passager, date_heure_arrive, id_hotel) VALUES (?, ?, ?, ?)";

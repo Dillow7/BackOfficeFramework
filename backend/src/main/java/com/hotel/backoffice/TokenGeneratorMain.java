@@ -24,7 +24,7 @@ public class TokenGeneratorMain {
     private static void insertToken(String token, LocalDateTime expiration) {
         String url = "jdbc:mysql://localhost:3306/hotel"; // à adapter selon config
         String user = "root"; // à adapter
-        String password = ""; // à adapter
+        String password = "root"; // à adapter
         String sql = "INSERT INTO token (token, date_expiration) VALUES (?, ?)";
         try (Connection conn = DriverManager.getConnection(url, user, password);
              PreparedStatement stmt = conn.prepareStatement(sql)) {

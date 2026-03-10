@@ -6,6 +6,8 @@ import java.sql.*;
 import java.util.ArrayList;
 import java.util.List;
 
+
+// DAO pour gérer les opérations CRUD sur les véhicules
 public class VehiculeDao {
     private static final String INSERT_SQL =
         "INSERT INTO vehicule (reference, nb_place, type_carburant) VALUES (?, ?, ?)";

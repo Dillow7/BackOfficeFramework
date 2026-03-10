@@ -11,6 +11,8 @@ import mg.framework.annotations.RequestParam;
 import java.sql.SQLException;
 import java.util.List;
 
+
+// Contrôleur pour gérer les opérations CRUD sur les véhicules
 @Controlleur
 public class VehiculeApiController {
     private final VehiculeDao vehiculeDao = new VehiculeDao();
