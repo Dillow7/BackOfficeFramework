@@ -12,6 +12,8 @@ import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 
+
+// Contrôleur pour gérer les opérations liées aux réservations et à l'assignation des véhicules
 @Controlleur
 public class ReservationApiController {
     private final ReservationDao reservationDao = new ReservationDao();

@@ -12,6 +12,8 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
 
+
+// Contrôleur pour gérer les opérations liées aux réservations et à l'assignation des véhicules
 @Controlleur
 public class ReservationController {
     private final ReservationDao reservationDao = new ReservationDao();

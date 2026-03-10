@@ -7,6 +7,8 @@ import java.sql.Statement;
 import java.util.HashMap;
 import java.util.Map;
 
+
+// DAO pour gérer les opérations liées aux distances entre aéroports
 public class DistanceDao {
     public Map<String, Double> findAllDistancesKm() throws SQLException {
         String sql = "SELECT code_from, code_to, valeur_km FROM distance";

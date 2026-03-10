@@ -416,6 +416,7 @@ public class VehicleAssignmentService {
         report.getUnassigned().add(assignment);
     }
 
+    // Méthodes utilitaires
     private AirportChoice chooseNearestAirport(String hotelCode, List<Hotel> airports, Map<String, Double> distancesKm) {
         AirportChoice choice = null;
         for (Hotel airport : airports) {
@@ -438,6 +439,7 @@ public class VehicleAssignmentService {
         return choice;
     }
 
+    // Trouve la capacité maximale parmi les véhicules
     private int findMaxVehicleCapacity(List<Vehicule> vehicules) {
         int max = 0;
         for (Vehicule vehicule : vehicules) {
@@ -466,6 +468,7 @@ public class VehicleAssignmentService {
         return airports;
     }
 
+    // Trouve la liste des codes aéroport présents dans les réservations en attente
     private List<String> airportsWithPendingReservations(List<AssignmentCandidate> pending) {
         List<String> airports = new ArrayList<>();
         for (AssignmentCandidate candidate : pending) {
