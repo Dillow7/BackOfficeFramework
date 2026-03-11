@@ -25,10 +25,13 @@ INSERT INTO distance (code_from, code_to, valeur_km) VALUES
   ('TNR', 'HOT_NOVOTEL', 18.0),
   ('TNR', 'HOT_IBIS', 14.2),
   ('HOT_LOKANGA', 'TNR', 20.3),
-  ('TMM', 'HOT_COLBERT', 280.0),
-  ('TMM', 'HOT_NOVOTEL', 277.0),
-  ('TMM', 'HOT_IBIS', 282.0),
-  ('TMM', 'HOT_LOKANGA', 279.0);
+  ('HOT_COLBERT', 'HOT_NOVOTEL', 6.0),
+  ('HOT_COLBERT', 'HOT_IBIS', 5.5),
+  ('HOT_COLBERT', 'HOT_LOKANGA', 8.0),
+  ('HOT_NOVOTEL', 'HOT_IBIS', 0.5),
+  ('HOT_NOVOTEL', 'HOT_LOKANGA', 2.0),
+  ('HOT_IBIS', 'HOT_LOKANGA', 1.5);
+
 
 -- Réservations de test (03 mars 2026 + autres dates)
 INSERT INTO reservation (id_client, nb_passager, date_heure_arrive, id_hotel) VALUES

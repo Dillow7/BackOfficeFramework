@@ -26,6 +26,8 @@ public class TransferAssignment {
     private Integer passagersTrajet;
     private Integer nbReservationsTrajet;
     private String motif;
+    private Long tempsAttenteEstimeMinutes;
+    private String detailsTrajet;
 
     public boolean isAssigned() {
         return vehiculeId != null;
@@ -189,5 +191,21 @@ public class TransferAssignment {
 
     public void setMotif(String motif) {
         this.motif = motif;
+    }
+
+    public Long getTempsAttenteEstimeMinutes() {
+        return tempsAttenteEstimeMinutes;
+    }
+
+    public void setTempsAttenteEstimeMinutes(Long tempsAttenteEstimeMinutes) {
+        this.tempsAttenteEstimeMinutes = tempsAttenteEstimeMinutes;
+    }
+
+    public String getDetailsTrajet() {
+        return detailsTrajet;
+    }
+
+    public void setDetailsTrajet(String detailsTrajet) {
+        this.detailsTrajet = detailsTrajet;
     }
 }

@@ -15,6 +15,10 @@ ALTER TABLE hotel
 -- A lancer une seule fois. Si l'index existe deja, ignorer l'erreur.
 ALTER TABLE hotel ADD CONSTRAINT uq_hotel_code UNIQUE (code);
 
+-- Ajouter la colonne date_creation à la table reservation
+ALTER TABLE reservation
+    ADD COLUMN IF NOT EXISTS date_creation DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP;
+
 CREATE TABLE IF NOT EXISTS distance (
     code_from VARCHAR(20) NOT NULL,
     code_to VARCHAR(20) NOT NULL,

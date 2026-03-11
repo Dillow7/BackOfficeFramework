@@ -87,6 +87,7 @@
                         <th>Distance</th>
                         <th>Départ aéroport</th>
                         <th>Arrivée hôtel</th>
+                        <th>Détails trajet</th>
                         <th>Véhicule</th>
                     </tr>
                 </thead>
@@ -123,6 +124,20 @@
                         <td><%= a.getHeureDepartAeroport() != null ? a.getHeureDepartAeroport().format(dtf) : "-" %></td>
                         <td><%= a.getHeureArriveeHotel() != null ? a.getHeureArriveeHotel().format(dtf) : "-" %></td>
                         <td>
+                            <div style="font-size: 0.9em;">
+                                <strong>Trajet #<%= a.getTrajetId() != null ? a.getTrajetId() : "-" %></strong><br>
+                                <span class="badge badge--info">Ordre: <%= a.getOrdreDepot() != null ? a.getOrdreDepot() : "-" %>/<%= a.getNbReservationsTrajet() != null ? a.getNbReservationsTrajet() : "-" %></span><br>
+                                <% if (a.getTempsAttenteEstimeMinutes() != null && a.getTempsAttenteEstimeMinutes() > 0) { %>
+                                    <small>Attente: <%= a.getTempsAttenteEstimeMinutes() %> min</small>
+                                <% } else { %>
+                                    <small>Départ immédiat</small>
+                                <% } %>
+                                <% if (a.getDetailsTrajet() != null && !a.getDetailsTrajet().isEmpty()) { %>
+                                    <br><small style="color: #666;"><%= a.getDetailsTrajet() %></small>
+                                <% } %>
+                            </div>
+                        </td>
+                        <td>
                             <span class="badge badge--success">#<%= a.getVehiculeId() %> <%= a.getVehiculeReference() %></span><br>
                             <small><%= a.getVehiculeNbPlace() %> places - <%= a.getVehiculeTypeCarburant() %></small>
                         </td>
@@ -130,7 +145,7 @@
                 <%     }
                    } else { %>
                     <tr>
-                        <td colspan="8">
+                        <td colspan="9">
                             <div class="empty-message">
                                 <span class="empty-icon">🚫</span>
                                 <div class="empty-title">Aucune réservation assignée</div>

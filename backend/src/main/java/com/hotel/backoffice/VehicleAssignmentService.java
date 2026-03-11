@@ -99,9 +99,12 @@ public class VehicleAssignmentService {
             AssignmentCandidate candidate = new AssignmentCandidate();
             candidate.reservationId = reservation.getId();
             candidate.hotelCode = hotel.getCode();
+            candidate.hotelName = hotel.getNom();
+            candidate.clientId = reservation.getIdClient();
             candidate.airportCode = nearestAirport.airportCode;
             candidate.nbPassager = reservation.getNbPassager();
             candidate.readyAt = plannedDeparture;
+            candidate.dateCreation = reservation.getDateCreation();
             candidate.airportToHotelDistanceKm = nearestAirport.distanceKm;
             candidate.assignment = assignment;
             pending.add(candidate);
@@ -127,9 +130,18 @@ public class VehicleAssignmentService {
         while (!pending.isEmpty()) {
             TripPlan bestTrip = chooseBestTrip(pending, vehicleStates, distancesKm, vitesseMoyenne, tempsAttenteMax);
             if (bestTrip == null) {
+                // Trier les réservations restantes par priorité avant de les marquer non assignées
+                // Priorité: date de réservation (premier inscrit), puis proximité hôtel, puis ordre alphabétique
+                pending.sort(Comparator
+                    .comparing((AssignmentCandidate c) -> c.dateCreation != null ? c.dateCreation : c.readyAt, Comparator.nullsLast(LocalDateTime::compareTo)) // Date réservation
+                    .thenComparingDouble(c -> c.airportToHotelDistanceKm) // Proximité hôtel
+                    .thenComparing(c -> c.hotelName, String.CASE_INSENSITIVE_ORDER) // Nom hôtel
+                    .thenComparing(c -> c.clientId, String.CASE_INSENSITIVE_ORDER) // Nom client
+                    .thenComparingInt(c -> c.reservationId));
+                
                 for (AssignmentCandidate candidate : pending) {
                     markUnassigned(report, candidate.assignment,
-                        "Conflit d'horaires (temps d'attente max: " + tempsAttenteMax + " min)");
+                        "Capacité insuffisante - priorité: date réservation, proximité hôtel, ordre alphabétique");
                 }
                 pending.clear();
                 break;
@@ -230,7 +242,11 @@ public class VehicleAssignmentService {
         readyCandidates.sort(
             Comparator
                 .comparing((AssignmentCandidate c) -> c.readyAt)
+                .thenComparing((AssignmentCandidate c) -> c.dateCreation != null ? c.dateCreation : LocalDateTime.MAX, Comparator.nullsLast(LocalDateTime::compareTo))
+                .thenComparingInt((AssignmentCandidate c) -> -c.nbPassager) // Grouper les gros groupes en premier
                 .thenComparingDouble(c -> c.airportToHotelDistanceKm)
+                .thenComparing((AssignmentCandidate c) -> c.hotelName, String.CASE_INSENSITIVE_ORDER)
+                .thenComparing((AssignmentCandidate c) -> c.clientId, String.CASE_INSENSITIVE_ORDER)
                 .thenComparingInt(c -> c.reservationId)
         );
 
@@ -255,23 +271,49 @@ public class VehicleAssignmentService {
         List<AssignmentCandidate> route = orderRoute(selected, distancesKm);
 
         Map<Integer, LocalDateTime> arrivalByReservationId = new HashMap<>();
+        Map<Integer, String> trajetDetailsByReservationId = new HashMap<>();
         String currentCode = airportCode;
         LocalDateTime currentTime = departure;
+        StringBuilder cumulativeDetails = new StringBuilder();
 
         for (AssignmentCandidate candidate : route) {
-            Double legDistance = DistanceDao.findSymmetricDistanceKm(distancesKm, currentCode, candidate.hotelCode);
-            if (legDistance == null) {
-                if (airportCode.equals(currentCode)) {
-                    legDistance = candidate.airportToHotelDistanceKm;
-                } else {
-                    legDistance = DistanceDao.findSymmetricDistanceKm(distancesKm, airportCode, candidate.hotelCode);
+            Double legDistance;
+            if (currentCode.equals(candidate.hotelCode)) {
+                // Même destination : pas de déplacement
+                legDistance = 0.0;
+            } else {
+                legDistance = DistanceDao.findSymmetricDistanceKm(distancesKm, currentCode, candidate.hotelCode);
+                if (legDistance == null) {
+                    if (airportCode.equals(currentCode)) {
+                        legDistance = candidate.airportToHotelDistanceKm;
+                    } else {
+                        // Distance via l'aéroport : currentCode -> airportCode -> candidate.hotelCode
+                        Double distCurrentToAirport = DistanceDao.findSymmetricDistanceKm(distancesKm, currentCode, airportCode);
+                        Double distAirportToCandidate = DistanceDao.findSymmetricDistanceKm(distancesKm, airportCode, candidate.hotelCode);
+                        if (distCurrentToAirport != null && distAirportToCandidate != null) {
+                            legDistance = distCurrentToAirport + distAirportToCandidate;
+                        } else {
+                            return null; // Impossible de calculer la distance
+                        }
+                    }
                 }
-            }
-            if (legDistance == null) {
-                return null;
             }
 
             long legMinutes = computeTravelMinutes(legDistance, vitesseMoyenne);
+            
+            // Construire le détail de ce segment
+            String segmentDetail = String.format("%s → %s (%.1f km, %d min)", 
+                currentCode, candidate.hotelCode, legDistance, legMinutes);
+            
+            // Ajouter au détail cumulatif
+            if (cumulativeDetails.length() > 0) {
+                cumulativeDetails.append(" | ");
+            }
+            cumulativeDetails.append(segmentDetail);
+            
+            // Chaque candidat voit tous les segments jusqu'à son arrêt
+            trajetDetailsByReservationId.put(candidate.reservationId, cumulativeDetails.toString());
+            
             currentTime = currentTime.plusMinutes(legMinutes);
             arrivalByReservationId.put(candidate.reservationId, currentTime);
             currentCode = candidate.hotelCode;
@@ -296,6 +338,7 @@ public class VehicleAssignmentService {
         tripPlan.route = route;
         tripPlan.totalPassengers = totalPassengers;
         tripPlan.arrivalByReservationId = arrivalByReservationId;
+        tripPlan.trajetDetailsByReservationId = trajetDetailsByReservationId;
         tripPlan.nextVehicleAvailableAt = nextVehicleAvailableAt;
         return tripPlan;
     }
@@ -314,6 +357,17 @@ public class VehicleAssignmentService {
             assignment.setOrdreDepot(ordreDepot++);
             assignment.setPassagersTrajet(tripPlan.totalPassengers);
             assignment.setNbReservationsTrajet(tripPlan.route.size());
+            
+            // Calcul du temps d'attente estimé
+            long waitingMinutes = java.time.Duration.between(candidate.readyAt, tripPlan.departure).toMinutes();
+            assignment.setTempsAttenteEstimeMinutes(waitingMinutes);
+            
+            // Définir les détails du trajet
+            String trajetDetails = tripPlan.trajetDetailsByReservationId.get(candidate.reservationId);
+            if (trajetDetails != null) {
+                assignment.setDetailsTrajet(trajetDetails);
+            }
+            
             report.getAssigned().add(assignment);
         }
 
@@ -480,8 +534,11 @@ public class VehicleAssignmentService {
     }
 
     private long computeTravelMinutes(double distanceKm, double vitesseMoyenneKmh) {
+        if (distanceKm <= 0) {
+            return 0L;
+        }
         double minutes = (distanceKm / vitesseMoyenneKmh) * 60.0;
-        return Math.max(1L, (long) Math.ceil(minutes));
+        return (long) Math.ceil(minutes);
     }
 
     private LocalDateTime maxDateTime(LocalDateTime left, LocalDateTime right) {
@@ -542,8 +599,11 @@ public class VehicleAssignmentService {
         private int reservationId;
         private String airportCode;
         private String hotelCode;
+        private String hotelName;
+        private String clientId;
         private int nbPassager;
         private LocalDateTime readyAt;
+        private LocalDateTime dateCreation;
         private double airportToHotelDistanceKm;
         private TransferAssignment assignment;
     }
@@ -563,6 +623,7 @@ public class VehicleAssignmentService {
         private List<AssignmentCandidate> route;
         private int totalPassengers;
         private Map<Integer, LocalDateTime> arrivalByReservationId;
+        private Map<Integer, String> trajetDetailsByReservationId;
         private LocalDateTime nextVehicleAvailableAt;
     }
 

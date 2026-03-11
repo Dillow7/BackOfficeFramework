@@ -7,6 +7,7 @@ public class Reservation {
     private String idClient;
     private int nbPassager;
     private LocalDateTime dateHeureArrive;
+    private LocalDateTime dateCreation;
     private int idHotel;
 
     public int getId() {
@@ -39,6 +40,14 @@ public class Reservation {
 
     public void setDateHeureArrive(LocalDateTime dateHeureArrive) {
         this.dateHeureArrive = dateHeureArrive;
+    }
+
+    public LocalDateTime getDateCreation() {
+        return dateCreation;
+    }
+
+    public void setDateCreation(LocalDateTime dateCreation) {
+        this.dateCreation = dateCreation;
     }
 
     public int getIdHotel() {

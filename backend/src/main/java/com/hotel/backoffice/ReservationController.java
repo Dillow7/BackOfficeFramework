@@ -77,7 +77,8 @@ public class ReservationController {
             int nb = Integer.parseInt(nbPassager);
             int hotel = Integer.parseInt(idHotel);
             LocalDateTime ldt = LocalDateTime.parse(dateHeureArriveeAvion, DateTimeFormatter.ISO_LOCAL_DATE_TIME);
-            reservationDao.insert(idClient, nb, Timestamp.valueOf(ldt), hotel);
+            LocalDateTime dateCreation = LocalDateTime.now(); // Date de création de la réservation
+            reservationDao.insert(idClient, nb, Timestamp.valueOf(ldt), Timestamp.valueOf(dateCreation), hotel);
             mv.addAttribute("success", "Réservation enregistrée");
         } catch (Exception e) {
             mv.addAttribute("error", "Erreur lors de l'enregistrement: " + e.getMessage());

@@ -11,21 +11,22 @@ import java.util.List;
 // DAO pour gérer les opérations liées aux réservations et à l'assignation des véhicules
 public class ReservationDao {
     private static final String INSERT_SQL =
-        "INSERT INTO reservation (id_client, nb_passager, date_heure_arrive, id_hotel) VALUES (?, ?, ?, ?)";
+        "INSERT INTO reservation (id_client, nb_passager, date_heure_arrive, date_creation, id_hotel) VALUES (?, ?, ?, ?, ?)";
 
     private static final String UPDATE_SQL =
-        "UPDATE reservation SET id_client = ?, nb_passager = ?, date_heure_arrive = ?, id_hotel = ? WHERE id = ?";
+        "UPDATE reservation SET id_client = ?, nb_passager = ?, date_heure_arrive = ?, date_creation = ?, id_hotel = ? WHERE id = ?";
 
     private static final String DELETE_SQL =
         "DELETE FROM reservation WHERE id = ?";
 
-    public void insert(String idClient, int nbPassager, Timestamp dateHeureArrive, int idHotel) throws SQLException {
+    public void insert(String idClient, int nbPassager, Timestamp dateHeureArrive, Timestamp dateCreation, int idHotel) throws SQLException {
         try (Connection conn = Db.getConnection();
              PreparedStatement ps = conn.prepareStatement(INSERT_SQL)) {
             ps.setString(1, idClient);
             ps.setInt(2, nbPassager);
             ps.setTimestamp(3, dateHeureArrive);
-            ps.setInt(4, idHotel);
+            ps.setTimestamp(4, dateCreation);
+            ps.setInt(5, idHotel);
             ps.executeUpdate();
         }
     }
@@ -49,6 +50,7 @@ public class ReservationDao {
                     r.setIdClient(rs.getString("id_client"));
                     r.setNbPassager(rs.getInt("nb_passager"));
                     r.setDateHeureArrive(rs.getTimestamp("date_heure_arrive").toLocalDateTime());
+                    r.setDateCreation(rs.getTimestamp("date_creation") != null ? rs.getTimestamp("date_creation").toLocalDateTime() : null);
                     r.setIdHotel(rs.getInt("id_hotel"));
                     return r;
                 }
@@ -57,14 +59,15 @@ public class ReservationDao {
         }
     }
 
-    public void update(int id, String idClient, int nbPassager, Timestamp dateHeureArrive, int idHotel) throws SQLException {
+    public void update(int id, String idClient, int nbPassager, Timestamp dateHeureArrive, Timestamp dateCreation, int idHotel) throws SQLException {
         try (Connection conn = Db.getConnection();
              PreparedStatement ps = conn.prepareStatement(UPDATE_SQL)) {
             ps.setString(1, idClient);
             ps.setInt(2, nbPassager);
             ps.setTimestamp(3, dateHeureArrive);
-            ps.setInt(4, idHotel);
-            ps.setInt(5, id);
+            ps.setTimestamp(4, dateCreation);
+            ps.setInt(5, idHotel);
+            ps.setInt(6, id);
             ps.executeUpdate();
         }
     }
@@ -96,6 +99,7 @@ public class ReservationDao {
             r.setIdClient(rs.getString("id_client"));
             r.setNbPassager(rs.getInt("nb_passager"));
             r.setDateHeureArrive(rs.getTimestamp("date_heure_arrive").toLocalDateTime());
+            r.setDateCreation(rs.getTimestamp("date_creation") != null ? rs.getTimestamp("date_creation").toLocalDateTime() : null);
             r.setIdHotel(rs.getInt("id_hotel"));
             reservations.add(r);
         }
