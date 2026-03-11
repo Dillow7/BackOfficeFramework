@@ -11,7 +11,6 @@ import mg.framework.annotations.RequestParam;
 import java.sql.SQLException;
 import java.util.List;
 
-
 // Contrôleur pour gérer les opérations CRUD sur les véhicules
 @Controlleur
 public class VehiculeApiController {
@@ -20,15 +19,14 @@ public class VehiculeApiController {
 
     @Json
     @GetMapping("/api/vehicules")
-    public ApiResponse<String> list(@RequestParam("token") String token) {
+    public List<Vehicule> list(@RequestParam("token") String token) {
         try {
             if (token == null || token.isEmpty() || !tokenDao.isTokenValid(token)) {
-                return new ApiResponse<>("error", 401, "Token invalide");
+                return List.of();
             }
-            List<Vehicule> vehicules = vehiculeDao.findAll();
-            return new ApiResponse<>("success", 200, "Vehicules: " + vehicules.size());
+            return vehiculeDao.findAll();
         } catch (Exception e) {
-            return new ApiResponse<>("error", 500, "Erreur: " + e.getMessage());
+            return List.of();
         }
     }
 
