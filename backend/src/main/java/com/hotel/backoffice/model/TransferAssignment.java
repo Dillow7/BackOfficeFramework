@@ -30,6 +30,7 @@ public class TransferAssignment {
     private String detailsTrajet;
     private Double kmParcourusTrajet;
     private LocalDateTime heureArriveeTrajet;
+    private Integer vehiculeTripCount;
 
     public boolean isAssigned() {
         return vehiculeId != null;
@@ -225,5 +226,13 @@ public class TransferAssignment {
 
     public void setHeureArriveeTrajet(LocalDateTime heureArriveeTrajet) {
         this.heureArriveeTrajet = heureArriveeTrajet;
+    }
+
+    public Integer getVehiculeTripCount() {
+        return vehiculeTripCount;
+    }
+
+    public void setVehiculeTripCount(Integer vehiculeTripCount) {
+        this.vehiculeTripCount = vehiculeTripCount;
     }
 }

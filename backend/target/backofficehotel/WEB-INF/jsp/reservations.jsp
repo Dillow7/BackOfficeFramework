@@ -152,6 +152,9 @@
                         <td>
                             <span class="badge badge--success">#<%= a.getVehiculeId() %> <%= a.getVehiculeReference() %></span><br>
                             <small><%= a.getVehiculeNbPlace() %> places - <%= a.getVehiculeTypeCarburant() %></small>
+                            <% if (a.getVehiculeTripCount() != null) { %>
+                                <br><small>Trajets déjà faits (jour): <%= a.getVehiculeTripCount() %></small>
+                            <% } %>
                         </td>
                     </tr>
                 <%     }

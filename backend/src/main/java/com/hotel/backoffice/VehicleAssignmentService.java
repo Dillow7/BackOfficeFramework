@@ -139,6 +139,7 @@ public class VehicleAssignmentService {
             state.vehicule = vehicule;
             state.availableAt = LocalDateTime.MIN;
             state.currentAirportCode = null;
+            state.tripCount = 0;
             vehicleStates.add(state);
         }
 
@@ -408,6 +409,7 @@ public class VehicleAssignmentService {
             }
         }
 
+        int tripCountAtDeparture = tripPlan.vehicleState.tripCount;
         int ordreDepot = 1;
         for (AssignmentCandidate candidate : tripPlan.route) {
             TransferAssignment assignment = candidate.assignment;
@@ -415,6 +417,7 @@ public class VehicleAssignmentService {
             assignment.setVehiculeReference(tripPlan.vehicleState.vehicule.getReference());
             assignment.setVehiculeNbPlace(tripPlan.vehicleState.vehicule.getNbPlace());
             assignment.setVehiculeTypeCarburant(tripPlan.vehicleState.vehicule.getTypeCarburant());
+            assignment.setVehiculeTripCount(tripCountAtDeparture);
             assignment.setHeureDepartAeroport(tripPlan.departure);
             assignment.setHeureArriveeHotel(tripPlan.arrivalByReservationId.get(candidate.reservationId));
             assignment.setTrajetId(tripPlan.trajetId);
@@ -440,6 +443,7 @@ public class VehicleAssignmentService {
         pending.removeAll(tripPlan.selectedCandidates);
         tripPlan.vehicleState.availableAt = tripPlan.nextVehicleAvailableAt;
         tripPlan.vehicleState.currentAirportCode = tripPlan.airportCode;
+        tripPlan.vehicleState.tripCount++;
     }
 
     private int compareTripPlans(TripPlan left, TripPlan right) {
@@ -448,23 +452,27 @@ public class VehicleAssignmentService {
             return compare;
         }
 
-        // Priorité: servir le plus gros groupe d'abord (surtout en surcharge),
-        // puis maximiser le nombre de passagers, puis minimiser les places perdues,
-        // puis préférer diesel, puis mutualiser.
-        compare = Integer.compare(right.primaryGroupPassengers, left.primaryGroupPassengers);
+        // Priorités (Sprint 6 ajusté):
+        // 1) départ le plus tôt
+        // 2) adéquation places ↔ passagers (moins de places perdues)
+        // 3) tripCount le plus faible
+        // 4) diesel
+        // 5) capacité (DESC)
+        // 6) plus petit ID véhicule
+        int leftWaste = left.vehicleState.vehicule.getNbPlace() - left.totalPassengers;
+        int rightWaste = right.vehicleState.vehicule.getNbPlace() - right.totalPassengers;
+        compare = Integer.compare(leftWaste, rightWaste);
         if (compare != 0) {
             return compare;
         }
 
+        // Si même gaspillage, favoriser le plan qui embarque le plus de monde
         compare = Integer.compare(right.totalPassengers, left.totalPassengers);
         if (compare != 0) {
             return compare;
         }
 
-        compare = Integer.compare(
-            left.vehicleState.vehicule.getNbPlace() - left.totalPassengers,
-            right.vehicleState.vehicule.getNbPlace() - right.totalPassengers
-        );
+        compare = Integer.compare(left.vehicleState.tripCount, right.vehicleState.tripCount);
         if (compare != 0) {
             return compare;
         }
@@ -474,12 +482,7 @@ public class VehicleAssignmentService {
             return compare;
         }
 
-        compare = Integer.compare(right.route.size(), left.route.size());
-        if (compare != 0) {
-            return compare;
-        }
-
-        compare = Integer.compare(left.vehicleState.vehicule.getNbPlace(), right.vehicleState.vehicule.getNbPlace());
+        compare = Integer.compare(right.vehicleState.vehicule.getNbPlace(), left.vehicleState.vehicule.getNbPlace());
         if (compare != 0) {
             return compare;
         }
@@ -693,6 +696,7 @@ public class VehicleAssignmentService {
         private Vehicule vehicule;
         private LocalDateTime availableAt;
         private String currentAirportCode;
+        private int tripCount;
     }
 
     private static class TripPlan {
