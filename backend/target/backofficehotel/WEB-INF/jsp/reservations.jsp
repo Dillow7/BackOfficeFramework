@@ -13,7 +13,7 @@
 </head>
 <body>
     <header class="app-header">
-        <div class="brand">Hotel Manager Pro</div>
+        <div class="brand">3176-3186-3139</div>
         <nav class="nav">
             <a href="${pageContext.request.contextPath}/reservations" class="active">Réservations</a>
             <a href="${pageContext.request.contextPath}/reservations/new">Nouvelle réservation</a>

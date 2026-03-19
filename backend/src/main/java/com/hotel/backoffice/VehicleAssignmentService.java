@@ -17,7 +17,7 @@ import java.util.Locale;
 import java.util.Map;
 
 public class VehicleAssignmentService {
-    private static final double DEFAULT_VITESSE_MOYENNE_KMH = 40.0;
+    private static final double DEFAULT_VITESSE_MOYENNE_KMH = 50.0;
     private static final int DEFAULT_TEMPS_ATTENTE_MAX_MINUTES = 30;
     private static final boolean DEFAULT_ACTIVER_BUFFER_DEPART = false;
     private static final int DEFAULT_BUFFER_DEPART_MINUTES = 0;
@@ -131,9 +131,10 @@ public class VehicleAssignmentService {
             TripPlan bestTrip = chooseBestTrip(pending, vehicleStates, distancesKm, vitesseMoyenne, tempsAttenteMax);
             if (bestTrip == null) {
                 // Trier les réservations restantes par priorité avant de les marquer non assignées
-                // Priorité: date de réservation (premier inscrit), puis proximité hôtel, puis ordre alphabétique
+                // Priorité: arrivée avion, puis date de création (premier inscrit), puis proximité hôtel, puis ordre alphabétique
                 pending.sort(Comparator
-                    .comparing((AssignmentCandidate c) -> c.dateCreation != null ? c.dateCreation : c.readyAt, Comparator.nullsLast(LocalDateTime::compareTo)) // Date réservation
+                    .comparing((AssignmentCandidate c) -> c.readyAt, Comparator.nullsLast(LocalDateTime::compareTo)) // Arrivée avion
+                    .thenComparing((AssignmentCandidate c) -> c.dateCreation, Comparator.nullsLast(LocalDateTime::compareTo)) // Date création
                     .thenComparingDouble(c -> c.airportToHotelDistanceKm) // Proximité hôtel
                     .thenComparing(c -> c.hotelName, String.CASE_INSENSITIVE_ORDER) // Nom hôtel
                     .thenComparing(c -> c.clientId, String.CASE_INSENSITIVE_ORDER) // Nom client
@@ -141,7 +142,7 @@ public class VehicleAssignmentService {
                 
                 for (AssignmentCandidate candidate : pending) {
                     markUnassigned(report, candidate.assignment,
-                        "Capacité insuffisante - priorité: date réservation, proximité hôtel, ordre alphabétique");
+                        "Capacité insuffisante - priorité: arrivée avion, date création, proximité hôtel, ordre alphabétique");
                 }
                 pending.clear();
                 break;
@@ -239,25 +240,48 @@ public class VehicleAssignmentService {
             return null;
         }
 
-        readyCandidates.sort(
+        // Cas surcharge / arrivées simultanées:
+        // priorité: arrivée avion, puis date de création (premier inscrit premier servi),
+        // puis proximité hôtel, puis ordre alphabétique (hôtel/client), puis id.
+        Comparator<AssignmentCandidate> priorityComparator =
             Comparator
                 .comparing((AssignmentCandidate c) -> c.readyAt)
-                .thenComparing((AssignmentCandidate c) -> c.dateCreation != null ? c.dateCreation : LocalDateTime.MAX, Comparator.nullsLast(LocalDateTime::compareTo))
-                .thenComparingInt((AssignmentCandidate c) -> -c.nbPassager) // Grouper les gros groupes en premier
+                .thenComparing((AssignmentCandidate c) -> c.dateCreation, Comparator.nullsLast(LocalDateTime::compareTo))
                 .thenComparingDouble(c -> c.airportToHotelDistanceKm)
                 .thenComparing((AssignmentCandidate c) -> c.hotelName, String.CASE_INSENSITIVE_ORDER)
                 .thenComparing((AssignmentCandidate c) -> c.clientId, String.CASE_INSENSITIVE_ORDER)
-                .thenComparingInt(c -> c.reservationId)
-        );
+                .thenComparingInt(c -> c.reservationId);
+
+        // On pilote d'abord le trajet avec le plus gros groupe, puis on remplit en best-fit.
+        AssignmentCandidate primary = readyCandidates.stream()
+            .max(Comparator
+                .comparingInt((AssignmentCandidate c) -> c.nbPassager)
+                .thenComparing(priorityComparator.reversed()))
+            .orElse(null);
+        if (primary == null) {
+            return null;
+        }
 
         List<AssignmentCandidate> selected = new ArrayList<>();
         int totalPassengers = 0;
-        for (AssignmentCandidate candidate : readyCandidates) {
-            if (selected.isEmpty()) {
-                selected.add(candidate);
-                totalPassengers += candidate.nbPassager;
-                continue;
+        selected.add(primary);
+        totalPassengers += primary.nbPassager;
+
+        List<AssignmentCandidate> fillers = new ArrayList<>();
+        for (AssignmentCandidate c : readyCandidates) {
+            if (c.reservationId != primary.reservationId) {
+                fillers.add(c);
             }
+        }
+        // Best-fit: on essaie d'abord les plus petits groupes pour compléter les places,
+        // tout en respectant la priorité quand il y a égalité.
+        fillers.sort(
+            Comparator
+                .comparingInt((AssignmentCandidate c) -> c.nbPassager)
+                .thenComparing(priorityComparator)
+        );
+
+        for (AssignmentCandidate candidate : fillers) {
             if (totalPassengers + candidate.nbPassager <= capacity) {
                 selected.add(candidate);
                 totalPassengers += candidate.nbPassager;
@@ -337,6 +361,7 @@ public class VehicleAssignmentService {
         tripPlan.selectedCandidates = selected;
         tripPlan.route = route;
         tripPlan.totalPassengers = totalPassengers;
+        tripPlan.primaryGroupPassengers = primary.nbPassager;
         tripPlan.arrivalByReservationId = arrivalByReservationId;
         tripPlan.trajetDetailsByReservationId = trajetDetailsByReservationId;
         tripPlan.nextVehicleAvailableAt = nextVehicleAvailableAt;
@@ -382,18 +407,33 @@ public class VehicleAssignmentService {
             return compare;
         }
 
-        compare = Integer.compare(right.route.size(), left.route.size());
+        // Priorité: servir le plus gros groupe d'abord (surtout en surcharge),
+        // puis maximiser le nombre de passagers, puis minimiser les places perdues,
+        // puis préférer diesel, puis mutualiser.
+        compare = Integer.compare(right.primaryGroupPassengers, left.primaryGroupPassengers);
         if (compare != 0) {
             return compare;
         }
 
-        compare = Integer.compare(left.vehicleState.vehicule.getNbPlace() - left.totalPassengers,
-            right.vehicleState.vehicule.getNbPlace() - right.totalPassengers);
+        compare = Integer.compare(right.totalPassengers, left.totalPassengers);
+        if (compare != 0) {
+            return compare;
+        }
+
+        compare = Integer.compare(
+            left.vehicleState.vehicule.getNbPlace() - left.totalPassengers,
+            right.vehicleState.vehicule.getNbPlace() - right.totalPassengers
+        );
         if (compare != 0) {
             return compare;
         }
 
         compare = Integer.compare(isDiesel(left.vehicleState.vehicule) ? 0 : 1, isDiesel(right.vehicleState.vehicule) ? 0 : 1);
+        if (compare != 0) {
+            return compare;
+        }
+
+        compare = Integer.compare(right.route.size(), left.route.size());
         if (compare != 0) {
             return compare;
         }
@@ -622,6 +662,7 @@ public class VehicleAssignmentService {
         private List<AssignmentCandidate> selectedCandidates;
         private List<AssignmentCandidate> route;
         private int totalPassengers;
+        private int primaryGroupPassengers;
         private Map<Integer, LocalDateTime> arrivalByReservationId;
         private Map<Integer, String> trajetDetailsByReservationId;
         private LocalDateTime nextVehicleAvailableAt;

@@ -11,17 +11,19 @@ SET FOREIGN_KEY_CHECKS = 1;
 
 -- Lieux (hôtels + aéroports)
 INSERT INTO hotel (id_hotel, nom, code, aeroport) VALUES
-  (1, 'Colbert', 'HOT_COLBERT', 0),
+  (101, 'Aéroport Ivato', 'TNR', 1),
   (2, 'Novotel', 'HOT_NOVOTEL', 0),
   (3, 'Ibis', 'HOT_IBIS', 0),
   (4, 'Lokanga', 'HOT_LOKANGA', 0),
   (101, 'Aéroport Ivato', 'TNR', 1),
   (102, 'Aéroport Tamatave', 'TMM', 1);
 
+    (2, 'Aeropo', 'Hotel1', 0),
+
 -- Distances (km)
 -- HOT_LOKANGA n'a qu'une distance inverse pour tester la symétrie
 INSERT INTO distance (code_from, code_to, valeur_km) VALUES
-  ('TNR', 'HOT_COLBERT', 16.5),
+  ('TNR', 'Hotel1', 50);
   ('TNR', 'HOT_NOVOTEL', 18.0),
   ('TNR', 'HOT_IBIS', 14.2),
   ('HOT_LOKANGA', 'TNR', 20.3),
@@ -35,8 +37,14 @@ INSERT INTO distance (code_from, code_to, valeur_km) VALUES
 
 -- Réservations de test (03 mars 2026 + autres dates)
 INSERT INTO reservation (id_client, nb_passager, date_heure_arrive, id_hotel) VALUES
-  ('4631', 4,  '2026-03-03 09:00:00', 1),
-  ('4394', 4,  '2026-03-03 09:20:00', 3),
+  ('Cl1', 7,  '2026-03-12 09:00:00', 1),
+  ('Cl2', 11,  '2026-03-12 09:00:00', 1),
+  ('Cl3', 3,  '2026-03-12 09:00:00', 1),
+  ('Cl4', 1,  '2026-03-12 09:00:00', 1),
+  ('Cl5', 2,  '2026-03-12 09:00:00', 1),
+  ('Cl6', 20,  '2026-03-12 09:00:00', 1);
+
+  ('Client2', 11,  '2026-03-03 09:20:00', 3),
   ('8054', 2,  '2026-03-03 09:10:00', 4),
   ('1432', 5,  '2026-03-03 09:15:00', 1),
   ('7861', 6,  '2026-03-03 10:00:00', 2),
@@ -48,13 +56,10 @@ INSERT INTO reservation (id_client, nb_passager, date_heure_arrive, id_hotel) VA
 
 -- Véhicules de test
 INSERT INTO vehicule (reference, nb_place, type_carburant) VALUES
-  ('CAR-004-D', 4,  'Diesel'),
-  ('CAR-005-E', 5,  'Essence'),
-  ('CAR-005-D', 5,  'Diesel'),
-  ('CAR-007-H', 7,  'Hybride'),
-  ('CAR-012-D', 12, 'Diesel'),
-  ('CAR-002-ES', 2, 'ES');
-
+  ('V1', 12,  'Diesel'),
+  ('V2', 5,  'Essence'),
+  ('V3', 5,  'Diesel'),
+  ('V4', 12,  'Essence');
 -- Vérifications
 SELECT COUNT(*) AS nb_hotels FROM hotel;
 SELECT COUNT(*) AS nb_distances FROM distance;
