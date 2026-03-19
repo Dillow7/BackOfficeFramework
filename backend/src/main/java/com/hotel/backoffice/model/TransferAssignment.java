@@ -28,6 +28,8 @@ public class TransferAssignment {
     private String motif;
     private Long tempsAttenteEstimeMinutes;
     private String detailsTrajet;
+    private Double kmParcourusTrajet;
+    private LocalDateTime heureArriveeTrajet;
 
     public boolean isAssigned() {
         return vehiculeId != null;
@@ -207,5 +209,21 @@ public class TransferAssignment {
 
     public void setDetailsTrajet(String detailsTrajet) {
         this.detailsTrajet = detailsTrajet;
+    }
+
+    public Double getKmParcourusTrajet() {
+        return kmParcourusTrajet;
+    }
+
+    public void setKmParcourusTrajet(Double kmParcourusTrajet) {
+        this.kmParcourusTrajet = kmParcourusTrajet;
+    }
+
+    public LocalDateTime getHeureArriveeTrajet() {
+        return heureArriveeTrajet;
+    }
+
+    public void setHeureArriveeTrajet(LocalDateTime heureArriveeTrajet) {
+        this.heureArriveeTrajet = heureArriveeTrajet;
     }
 }

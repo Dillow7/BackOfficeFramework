@@ -30,6 +30,7 @@
            Integer tempsAttenteMax = (Integer) request.getAttribute("tempsAttenteMax");
            Boolean bufferActif = (Boolean) request.getAttribute("bufferActif");
            Integer bufferMinutes = (Integer) request.getAttribute("bufferMinutes");
+           Integer waitTimeMinutes = (Integer) request.getAttribute("waitTimeMinutes");
            Integer totalReservations = (Integer) request.getAttribute("totalReservations");
            Integer totalTrajets = (Integer) request.getAttribute("totalTrajets");
            Integer assignedCount = (Integer) request.getAttribute("assignedCount");
@@ -50,6 +51,11 @@
                 <div class="form-group" style="margin:0;">
                     <label for="date">Date des arrivées avion</label>
                     <input class="form-control" type="date" id="date" name="date" value="<%= selectedDate != null ? selectedDate : "" %>" required>
+                </div>
+                <div class="form-group" style="margin:0;">
+                    <label for="wait_time_minutes">Fenêtre attente (min)</label>
+                    <input class="form-control" type="number" id="wait_time_minutes" name="wait_time_minutes" min="0"
+                           value="<%= waitTimeMinutes != null ? waitTimeMinutes : "" %>" placeholder="Ex: 30">
                 </div>
                 <button type="submit" class="btn btn-primary">Filtrer</button>
             </form>
@@ -134,6 +140,12 @@
                                 <% } %>
                                 <% if (a.getDetailsTrajet() != null && !a.getDetailsTrajet().isEmpty()) { %>
                                     <br><small style="color: #666;"><%= a.getDetailsTrajet() %></small>
+                                <% } %>
+                                <% if (a.getKmParcourusTrajet() != null) { %>
+                                    <br><small style="color:#666;">Km parcourus (trajet): <%= String.format(Locale.US, "%.1f", a.getKmParcourusTrajet()) %> km</small>
+                                <% } %>
+                                <% if (a.getHeureArriveeTrajet() != null) { %>
+                                    <br><small style="color:#666;">Arrivée fin trajet: <%= a.getHeureArriveeTrajet().format(dtf) %></small>
                                 <% } %>
                             </div>
                         </td>

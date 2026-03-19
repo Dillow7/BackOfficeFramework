@@ -20,7 +20,10 @@ public class ReservationController {
     private final VehicleAssignmentService vehicleAssignmentService = new VehicleAssignmentService();
 
     @GetMapping("/reservations")
-    public ModelView list(@RequestParam("date") String dateValue) {
+    public ModelView list(
+        @RequestParam("date") String dateValue,
+        @RequestParam("wait_time_minutes") String waitTimeMinutes
+    ) {
         ModelView mv = new ModelView("/WEB-INF/jsp/reservations.jsp");
 
         LocalDate selectedDate = LocalDate.now();
@@ -33,12 +36,18 @@ public class ReservationController {
         }
 
         try {
-            AssignmentReport report = vehicleAssignmentService.buildDailyReport(selectedDate);
+            Integer waitOverride = null;
+            if (waitTimeMinutes != null && !waitTimeMinutes.trim().isEmpty()) {
+                waitOverride = Integer.parseInt(waitTimeMinutes.trim());
+            }
+
+            AssignmentReport report = vehicleAssignmentService.buildDailyReport(selectedDate, waitOverride, null);
             mv.addAttribute("selectedDate", selectedDate.toString());
             mv.addAttribute("vitesseMoyenne", report.getVitesseMoyenneKmh());
             mv.addAttribute("tempsAttenteMax", report.getTempsAttenteMaxMinutes());
             mv.addAttribute("bufferActif", report.isBufferDepartActif());
             mv.addAttribute("bufferMinutes", report.getBufferDepartMinutes());
+            mv.addAttribute("waitTimeMinutes", waitOverride);
             mv.addAttribute("totalReservations", report.getTotalReservations());
             mv.addAttribute("totalTrajets", report.getTotalTrajets());
             mv.addAttribute("assignedCount", report.getAssigned().size());

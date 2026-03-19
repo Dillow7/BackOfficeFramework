@@ -21,6 +21,8 @@ public class VehicleAssignmentService {
     private static final int DEFAULT_TEMPS_ATTENTE_MAX_MINUTES = 30;
     private static final boolean DEFAULT_ACTIVER_BUFFER_DEPART = false;
     private static final int DEFAULT_BUFFER_DEPART_MINUTES = 0;
+    private static final int DEFAULT_WAIT_TIME_MINUTES = 0;
+    private static final int DEFAULT_MAX_WAIT_WINDOW_MINUTES = 30;
 
     private final ReservationDao reservationDao = new ReservationDao();
     private final VehiculeDao vehiculeDao = new VehiculeDao();
@@ -28,10 +30,24 @@ public class VehicleAssignmentService {
     private final DistanceDao distanceDao = new DistanceDao();
 
     public AssignmentReport buildDailyReport(LocalDate date) throws SQLException {
+        return buildDailyReport(date, null, null);
+    }
+
+    public AssignmentReport buildDailyReport(LocalDate date, Integer waitTimeMinutesOverride, Integer maxWaitMinutesOverride)
+        throws SQLException {
         double vitesseMoyenne = resolveDoubleEnv("VITESSE_MOYENNE_KMH", DEFAULT_VITESSE_MOYENNE_KMH);
         int tempsAttenteMax = resolveIntEnv("TEMPS_ATTENTE_MAX_MINUTES", DEFAULT_TEMPS_ATTENTE_MAX_MINUTES);
         boolean bufferDepartActif = resolveBooleanEnv("ACTIVER_BUFFER_DEPART", DEFAULT_ACTIVER_BUFFER_DEPART);
         int bufferDepartMinutes = resolveIntEnv("BUFFER_DEPART_MINUTES", DEFAULT_BUFFER_DEPART_MINUTES);
+        int waitTimeMinutes = resolveIntEnv("WAIT_TIME_MINUTES", DEFAULT_WAIT_TIME_MINUTES);
+        int maxWaitWindowMinutes = resolveIntEnv("MAX_WAIT_MINUTES", DEFAULT_MAX_WAIT_WINDOW_MINUTES);
+
+        if (waitTimeMinutesOverride != null && waitTimeMinutesOverride >= 0) {
+            waitTimeMinutes = waitTimeMinutesOverride;
+        }
+        if (maxWaitMinutesOverride != null && maxWaitMinutesOverride >= 0) {
+            maxWaitWindowMinutes = maxWaitMinutesOverride;
+        }
 
         List<Reservation> reservations = reservationDao.findByDate(date);
         reservations.sort(Comparator.comparing(Reservation::getDateHeureArrive, Comparator.nullsLast(LocalDateTime::compareTo)));
@@ -128,7 +144,7 @@ public class VehicleAssignmentService {
 
         int nextTrajetId = 1;
         while (!pending.isEmpty()) {
-            TripPlan bestTrip = chooseBestTrip(pending, vehicleStates, distancesKm, vitesseMoyenne, tempsAttenteMax);
+            TripPlan bestTrip = chooseBestTrip(pending, vehicleStates, distancesKm, vitesseMoyenne, tempsAttenteMax, waitTimeMinutes, maxWaitWindowMinutes);
             if (bestTrip == null) {
                 // Trier les réservations restantes par priorité avant de les marquer non assignées
                 // Priorité: arrivée avion, puis date de création (premier inscrit), puis proximité hôtel, puis ordre alphabétique
@@ -167,7 +183,9 @@ public class VehicleAssignmentService {
         List<VehicleState> vehicleStates,
         Map<String, Double> distancesKm,
         double vitesseMoyenne,
-        int tempsAttenteMax
+        int tempsAttenteMax,
+        int waitTimeMinutes,
+        int maxWaitWindowMinutes
     ) {
         TripPlan best = null;
 
@@ -187,7 +205,9 @@ public class VehicleAssignmentService {
                     airportCode,
                     distancesKm,
                     vitesseMoyenne,
-                    tempsAttenteMax
+                    tempsAttenteMax,
+                    waitTimeMinutes,
+                    maxWaitWindowMinutes
                 );
                 if (candidatePlan == null) {
                     continue;
@@ -207,7 +227,9 @@ public class VehicleAssignmentService {
         String airportCode,
         Map<String, Double> distancesKm,
         double vitesseMoyenne,
-        int tempsAttenteMax
+        int tempsAttenteMax,
+        int waitTimeMinutes,
+        int maxWaitWindowMinutes
     ) {
         int capacity = state.vehicule.getNbPlace();
 
@@ -230,9 +252,15 @@ public class VehicleAssignmentService {
 
         LocalDateTime departure = maxDateTime(earliestReady, state.availableAt);
 
+        // Sprint 5 — fenêtre d'attente (mutualisation)
+        // Le véhicule attend (waitTimeMinutes) min (capé par maxWaitWindowMinutes) pour regrouper
+        // les arrivées pendant cette fenêtre, puis part à la fin de la fenêtre.
+        int effectiveWait = Math.max(0, Math.min(waitTimeMinutes, maxWaitWindowMinutes));
+        LocalDateTime departureWindowEnd = departure.plusMinutes(effectiveWait);
+
         List<AssignmentCandidate> readyCandidates = new ArrayList<>();
         for (AssignmentCandidate candidate : airportPending) {
-            if (!candidate.readyAt.isAfter(departure)) {
+            if (!candidate.readyAt.isAfter(departureWindowEnd)) {
                 readyCandidates.add(candidate);
             }
         }
@@ -297,8 +325,9 @@ public class VehicleAssignmentService {
         Map<Integer, LocalDateTime> arrivalByReservationId = new HashMap<>();
         Map<Integer, String> trajetDetailsByReservationId = new HashMap<>();
         String currentCode = airportCode;
-        LocalDateTime currentTime = departure;
+        LocalDateTime currentTime = departureWindowEnd;
         StringBuilder cumulativeDetails = new StringBuilder();
+        double totalDistanceKm = 0.0;
 
         for (AssignmentCandidate candidate : route) {
             Double legDistance;
@@ -324,6 +353,7 @@ public class VehicleAssignmentService {
             }
 
             long legMinutes = computeTravelMinutes(legDistance, vitesseMoyenne);
+            totalDistanceKm += legDistance;
             
             // Construire le détail de ce segment
             String segmentDetail = String.format("%s → %s (%.1f km, %d min)", 
@@ -351,17 +381,19 @@ public class VehicleAssignmentService {
             return null;
         }
 
+        totalDistanceKm += returnDistance;
         long returnMinutes = computeTravelMinutes(returnDistance, vitesseMoyenne);
         LocalDateTime nextVehicleAvailableAt = currentTime.plusMinutes(returnMinutes + tempsAttenteMax);
 
         TripPlan tripPlan = new TripPlan();
         tripPlan.vehicleState = state;
         tripPlan.airportCode = airportCode;
-        tripPlan.departure = departure;
+        tripPlan.departure = departureWindowEnd;
         tripPlan.selectedCandidates = selected;
         tripPlan.route = route;
         tripPlan.totalPassengers = totalPassengers;
         tripPlan.primaryGroupPassengers = primary.nbPassager;
+        tripPlan.totalDistanceKm = totalDistanceKm;
         tripPlan.arrivalByReservationId = arrivalByReservationId;
         tripPlan.trajetDetailsByReservationId = trajetDetailsByReservationId;
         tripPlan.nextVehicleAvailableAt = nextVehicleAvailableAt;
@@ -369,6 +401,13 @@ public class VehicleAssignmentService {
     }
 
     private void applyTrip(TripPlan tripPlan, List<AssignmentCandidate> pending, AssignmentReport report) {
+        LocalDateTime lastArrival = null;
+        for (LocalDateTime at : tripPlan.arrivalByReservationId.values()) {
+            if (at != null && (lastArrival == null || at.isAfter(lastArrival))) {
+                lastArrival = at;
+            }
+        }
+
         int ordreDepot = 1;
         for (AssignmentCandidate candidate : tripPlan.route) {
             TransferAssignment assignment = candidate.assignment;
@@ -382,6 +421,8 @@ public class VehicleAssignmentService {
             assignment.setOrdreDepot(ordreDepot++);
             assignment.setPassagersTrajet(tripPlan.totalPassengers);
             assignment.setNbReservationsTrajet(tripPlan.route.size());
+            assignment.setKmParcourusTrajet(tripPlan.totalDistanceKm);
+            assignment.setHeureArriveeTrajet(lastArrival);
             
             // Calcul du temps d'attente estimé
             long waitingMinutes = java.time.Duration.between(candidate.readyAt, tripPlan.departure).toMinutes();
@@ -663,6 +704,7 @@ public class VehicleAssignmentService {
         private List<AssignmentCandidate> route;
         private int totalPassengers;
         private int primaryGroupPassengers;
+        private double totalDistanceKm;
         private Map<Integer, LocalDateTime> arrivalByReservationId;
         private Map<Integer, String> trajetDetailsByReservationId;
         private LocalDateTime nextVehicleAvailableAt;
