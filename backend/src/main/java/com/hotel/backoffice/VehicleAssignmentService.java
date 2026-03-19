@@ -99,11 +99,6 @@ public class VehicleAssignmentService {
                 continue;
             }
 
-            if (reservation.getNbPassager() > maxVehicleCapacity) {
-                markUnassigned(report, assignment, "Pas de véhicule avec capacité suffisante");
-                continue;
-            }
-
             long directTravelMinutes = computeTravelMinutes(nearestAirport.distanceKm, vitesseMoyenne);
             LocalDateTime flightArrival = reservation.getDateHeureArrive();
             LocalDateTime plannedDeparture = flightArrival.plusMinutes(bufferDepartActif ? bufferDepartMinutes : 0L);
@@ -144,8 +139,22 @@ public class VehicleAssignmentService {
         }
 
         int nextTrajetId = 1;
+        Integer splitReservationIdToFinish = null;
         while (!pending.isEmpty()) {
-            TripPlan bestTrip = chooseBestTrip(pending, vehicleStates, distancesKm, vitesseMoyenne, tempsAttenteMax, waitTimeMinutes, maxWaitWindowMinutes);
+            if (splitReservationIdToFinish != null && !containsReservation(pending, splitReservationIdToFinish)) {
+                splitReservationIdToFinish = null;
+            }
+
+            TripPlan bestTrip = chooseBestTrip(
+                pending,
+                vehicleStates,
+                distancesKm,
+                vitesseMoyenne,
+                tempsAttenteMax,
+                waitTimeMinutes,
+                maxWaitWindowMinutes,
+                splitReservationIdToFinish
+            );
             if (bestTrip == null) {
                 // Trier les réservations restantes par priorité avant de les marquer non assignées
                 // Priorité: arrivée avion, puis date de création (premier inscrit), puis proximité hôtel, puis ordre alphabétique
@@ -167,6 +176,10 @@ public class VehicleAssignmentService {
 
             bestTrip.trajetId = nextTrajetId++;
             applyTrip(bestTrip, pending, report);
+
+            if (bestTrip.partialSplitReservationId != null) {
+                splitReservationIdToFinish = bestTrip.partialSplitReservationId;
+            }
         }
 
         report.getAssigned().sort(
@@ -186,7 +199,8 @@ public class VehicleAssignmentService {
         double vitesseMoyenne,
         int tempsAttenteMax,
         int waitTimeMinutes,
-        int maxWaitWindowMinutes
+        int maxWaitWindowMinutes,
+        Integer splitReservationIdToFinish
     ) {
         TripPlan best = null;
 
@@ -208,7 +222,8 @@ public class VehicleAssignmentService {
                     vitesseMoyenne,
                     tempsAttenteMax,
                     waitTimeMinutes,
-                    maxWaitWindowMinutes
+                    maxWaitWindowMinutes,
+                    splitReservationIdToFinish
                 );
                 if (candidatePlan == null) {
                     continue;
@@ -230,13 +245,15 @@ public class VehicleAssignmentService {
         double vitesseMoyenne,
         int tempsAttenteMax,
         int waitTimeMinutes,
-        int maxWaitWindowMinutes
+        int maxWaitWindowMinutes,
+        Integer splitReservationIdToFinish
     ) {
         int capacity = state.vehicule.getNbPlace();
 
         List<AssignmentCandidate> airportPending = new ArrayList<>();
         for (AssignmentCandidate candidate : pending) {
-            if (airportCode.equals(candidate.airportCode) && candidate.nbPassager <= capacity) {
+            // Sprint 7: on autorise la réservation à dépasser la capacité (elle pourra être fractionnée).
+            if (airportCode.equals(candidate.airportCode)) {
                 airportPending.add(candidate);
             }
         }
@@ -281,8 +298,23 @@ public class VehicleAssignmentService {
                 .thenComparing((AssignmentCandidate c) -> c.clientId, String.CASE_INSENSITIVE_ORDER)
                 .thenComparingInt(c -> c.reservationId);
 
+        // Sprint 7 — Fractionnement:
+        // si une réservation est en cours de fractionnement, on la priorise pour finir la répartition.
+        List<AssignmentCandidate> primaryPool = readyCandidates;
+        if (splitReservationIdToFinish != null) {
+            List<AssignmentCandidate> sameReservation = new ArrayList<>();
+            for (AssignmentCandidate c : readyCandidates) {
+                if (c.reservationId == splitReservationIdToFinish) {
+                    sameReservation.add(c);
+                }
+            }
+            if (!sameReservation.isEmpty()) {
+                primaryPool = sameReservation;
+            }
+        }
+
         // On pilote d'abord le trajet avec le plus gros groupe, puis on remplit en best-fit.
-        AssignmentCandidate primary = readyCandidates.stream()
+        AssignmentCandidate primary = primaryPool.stream()
             .max(Comparator
                 .comparingInt((AssignmentCandidate c) -> c.nbPassager)
                 .thenComparing(priorityComparator.reversed()))
@@ -293,8 +325,34 @@ public class VehicleAssignmentService {
 
         List<AssignmentCandidate> selected = new ArrayList<>();
         int totalPassengers = 0;
-        selected.add(primary);
-        totalPassengers += primary.nbPassager;
+        Integer partialSplitReservationId = null;
+        int remainingAfterSplit = 0;
+        if (primary.nbPassager > capacity) {
+            // On embarque une partie de la réservation dans ce véhicule (on remplit le véhicule)
+            int taken = capacity;
+
+            AssignmentCandidate part = new AssignmentCandidate();
+            part.reservationId = primary.reservationId;
+            part.airportCode = primary.airportCode;
+            part.hotelCode = primary.hotelCode;
+            part.hotelName = primary.hotelName;
+            part.clientId = primary.clientId;
+            part.nbPassager = taken;
+            part.readyAt = primary.readyAt;
+            part.dateCreation = primary.dateCreation;
+            part.airportToHotelDistanceKm = primary.airportToHotelDistanceKm;
+            part.assignment = copyAssignmentForSplit(primary.assignment, taken);
+
+            selected.add(part);
+            totalPassengers += taken;
+
+            // Le reste restera en attente (même réservation) et sera ajusté après sélection du meilleur plan
+            remainingAfterSplit = primary.nbPassager - taken;
+            partialSplitReservationId = primary.reservationId;
+        } else {
+            selected.add(primary);
+            totalPassengers += primary.nbPassager;
+        }
 
         List<AssignmentCandidate> fillers = new ArrayList<>();
         for (AssignmentCandidate c : readyCandidates) {
@@ -393,11 +451,13 @@ public class VehicleAssignmentService {
         tripPlan.selectedCandidates = selected;
         tripPlan.route = route;
         tripPlan.totalPassengers = totalPassengers;
-        tripPlan.primaryGroupPassengers = primary.nbPassager;
+        tripPlan.primaryGroupPassengers = (partialSplitReservationId != null) ? totalPassengers : primary.nbPassager;
         tripPlan.totalDistanceKm = totalDistanceKm;
         tripPlan.arrivalByReservationId = arrivalByReservationId;
         tripPlan.trajetDetailsByReservationId = trajetDetailsByReservationId;
         tripPlan.nextVehicleAvailableAt = nextVehicleAvailableAt;
+        tripPlan.partialSplitReservationId = partialSplitReservationId;
+        tripPlan.remainingPassengersAfterSplit = remainingAfterSplit;
         return tripPlan;
     }
 
@@ -417,6 +477,7 @@ public class VehicleAssignmentService {
             assignment.setVehiculeReference(tripPlan.vehicleState.vehicule.getReference());
             assignment.setVehiculeNbPlace(tripPlan.vehicleState.vehicule.getNbPlace());
             assignment.setVehiculeTypeCarburant(tripPlan.vehicleState.vehicule.getTypeCarburant());
+            // tripCount = nombre de trajets déjà faits AVANT ce trajet
             assignment.setVehiculeTripCount(tripCountAtDeparture);
             assignment.setHeureDepartAeroport(tripPlan.departure);
             assignment.setHeureArriveeHotel(tripPlan.arrivalByReservationId.get(candidate.reservationId));
@@ -426,6 +487,7 @@ public class VehicleAssignmentService {
             assignment.setNbReservationsTrajet(tripPlan.route.size());
             assignment.setKmParcourusTrajet(tripPlan.totalDistanceKm);
             assignment.setHeureArriveeTrajet(lastArrival);
+            assignment.setVehiculeHeureDisponible(tripPlan.nextVehicleAvailableAt);
             
             // Calcul du temps d'attente estimé
             long waitingMinutes = java.time.Duration.between(candidate.readyAt, tripPlan.departure).toMinutes();
@@ -441,6 +503,19 @@ public class VehicleAssignmentService {
         }
 
         pending.removeAll(tripPlan.selectedCandidates);
+
+        // Si on a fractionné une réservation, ajuster le nb_passager restant dans pending
+        if (tripPlan.partialSplitReservationId != null && tripPlan.remainingPassengersAfterSplit > 0) {
+            for (AssignmentCandidate c : pending) {
+                if (c.reservationId == tripPlan.partialSplitReservationId) {
+                    c.nbPassager = tripPlan.remainingPassengersAfterSplit;
+                    if (c.assignment != null) {
+                        c.assignment.setNbPassager(tripPlan.remainingPassengersAfterSplit);
+                    }
+                    break;
+                }
+            }
+        }
         tripPlan.vehicleState.availableAt = tripPlan.nextVehicleAvailableAt;
         tripPlan.vehicleState.currentAirportCode = tripPlan.airportCode;
         tripPlan.vehicleState.tripCount++;
@@ -712,10 +787,36 @@ public class VehicleAssignmentService {
         private Map<Integer, LocalDateTime> arrivalByReservationId;
         private Map<Integer, String> trajetDetailsByReservationId;
         private LocalDateTime nextVehicleAvailableAt;
+        private Integer partialSplitReservationId;
+        private int remainingPassengersAfterSplit;
     }
 
     private static class AirportChoice {
         private String airportCode;
         private Double distanceKm;
+    }
+
+    private boolean containsReservation(List<AssignmentCandidate> pending, int reservationId) {
+        for (AssignmentCandidate c : pending) {
+            if (c.reservationId == reservationId) {
+                return true;
+            }
+        }
+        return false;
+    }
+
+    private TransferAssignment copyAssignmentForSplit(TransferAssignment base, int nbPassager) {
+        TransferAssignment a = new TransferAssignment();
+        a.setReservationId(base.getReservationId());
+        a.setIdClient(base.getIdClient());
+        a.setNbPassager(nbPassager);
+        a.setIdHotel(base.getIdHotel());
+        a.setHotelNom(base.getHotelNom());
+        a.setHotelCode(base.getHotelCode());
+        a.setAeroportCode(base.getAeroportCode());
+        a.setHeureArriveeHotel(base.getHeureArriveeHotel());
+        a.setDistanceKm(base.getDistanceKm());
+        a.setDureeTrajetMinutes(base.getDureeTrajetMinutes());
+        return a;
     }
 }

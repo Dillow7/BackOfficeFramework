@@ -155,6 +155,9 @@
                             <% if (a.getVehiculeTripCount() != null) { %>
                                 <br><small>Trajets déjà faits (jour): <%= a.getVehiculeTripCount() %></small>
                             <% } %>
+                            <% if (a.getVehiculeHeureDisponible() != null) { %>
+                                <br><small>Dispo à: <%= a.getVehiculeHeureDisponible().format(dtf) %></small>
+                            <% } %>
                         </td>
                     </tr>
                 <%     }
